@@ -163,7 +163,7 @@ async def message_handler(event):
         )
         message = f'**Click Here 👇 For "{event.text}"**\n\n[🍿🎬 {str(event.text).upper()}\n🍿🎬 {str("Click me for results").upper()}]({tgraph_result})'
         button =  [Button.url('❓How To Open Link❓',
-                                    f'https://youtu.be/mNPz37mfc1M')], [
+                                    f'https://youtu.be/Fx744wr0XfQ')], [
                             Button.url('👉 Request Your Movie 👈',
                                     f'https://instagram.com/royalkrrishna?igshid=YmMyMTA2M2Y=')]
 
