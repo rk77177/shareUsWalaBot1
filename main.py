@@ -142,8 +142,8 @@ async def message_handler(event):
                                     f'http://www.google.com/search?q={event.text.replace(" ", "%20")}%20Movie')], [
                             Button.url('Click To Check Release Date 📅',
                                     f'http://www.google.com/search?q={event.text.replace(" ", "%20")}%20Movie%20Release%20Date')], [
-                            Button.url('👉Subscribe Our YouTube👈',
-                                    f'https://youtube.com/@technokrrish')]
+                            Button.url('👉 Search Here 👈',
+                                    f'https://amzn.to/3ykSzxC')]
             await txt.delete()
             result = await event.reply(answer, buttons=newbutton, link_preview=False)
             await asyncio.sleep(Config.AUTO_DELETE_TIME)
@@ -164,8 +164,8 @@ async def message_handler(event):
         message = f'**Click Here 👇 For "{event.text}"**\n\n[🍿🎬 {str(event.text).upper()}\n🍿🎬 {str("Click me for results").upper()}]({tgraph_result})'
         button =  [Button.url('❓How To Open Link❓',
                                     f'https://youtu.be/OlA6o0kJWL0')], [
-                            Button.url('👉Subscribe Our YouTube👈',
-                                    f'https://youtube.com/@technokrrish')]
+                            Button.url('👉 Search Here 👈',
+                                    f'https://amzn.to/3MmfpIu')]
 
         await txt.delete()
         result = await event.reply(message, buttons=button, link_preview=False)
