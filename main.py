@@ -163,7 +163,7 @@ async def message_handler(event):
         )
         message = f'**Click Here 👇 For "{event.text}"**\n\n[🍿🎬 {str(event.text).upper()}\n🍿🎬 {str("Click me for results").upper()}]({tgraph_result})'
         button =  [Button.url('❓How To Open Link❓',
-                                    f'https://youtu.be/yHukr3sf1Eg')], [
+                                    f'https://t.me/iP_Update/8')], [
                             Button.url('👉 Search Here 👈',
                                     f'https://amzn.to/3MmfpIu')]
 
