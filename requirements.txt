@@ -10,7 +10,3 @@ telethon
 telegraph[aio]
 markdown
 flask
-python-dotenv
-fastapi
-uvicorn
-nest_asyncio
