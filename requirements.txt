@@ -10,3 +10,5 @@ telethon
 telegraph[aio]
 markdown
 flask
+fastapi
+uvicorn
