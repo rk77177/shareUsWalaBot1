@@ -1,64 +1,67 @@
 import os
 import asyncio
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from telethon import TelegramClient, events
+from telethon.tl.types import Message
 import uvicorn
 
-# Load env variables
+# Load environment variables
 load_dotenv()
 
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
+SOURCE_CHANNEL = int(os.getenv("SOURCE_CHANNEL"))
 
-# Initialize Telegram client
+# Initialize Telegram bot client
 tbot = TelegramClient("bot", API_ID, API_HASH)
 
-# Initialize FastAPI
+# FastAPI app
 app = FastAPI()
 
-# In-memory dummy search (replace with real search logic later)
-async def search_files(query):
-    # 👇 Dummy data for now
-    return [
-        {"title": "Example Movie 1", "link": "https://t.me/yourchannel/1"},
-        {"title": "Example Movie 2", "link": "https://t.me/yourchannel/2"}
-    ]
+# ===== SEARCH FUNCTION =====
 
-# ========== TELETHON HANDLERS ==========
+async def search_files(query: str):
+    results = []
+    async for msg in tbot.iter_messages(SOURCE_CHANNEL, search=query, limit=20):
+        if msg.message:
+            # Parse message like: Movie Title (2022) 720p - https://link
+            parts = msg.message.split(" - ")
+            if len(parts) == 2:
+                title = parts[0].strip()
+                link = parts[1].strip()
+                results.append({"title": title, "link": link})
+    return results
+
+# ===== FASTAPI ROUTES =====
+
+@app.get("/")
+async def root():
+    return {"status": "✅ Bot is running!"}
+
+@app.get("/search")
+async def search(query: str):
+    results = await search_files(query)
+    return {"query": query, "results": results}
+
+# ===== TELETHON BOT SETUP =====
+
 async def setup_bot():
     @tbot.on(events.NewMessage(pattern="/start"))
     async def start_handler(event):
         await event.respond("✅ Bot is alive!")
-    
-    @tbot.on(events.NewMessage)
-    async def catch_all_handler(event):
-        if event.text and "hi" in event.text.lower():
-            await event.reply("Hello! 👋")
 
-# ========== FASTAPI ROUTES ==========
-
-@app.get("/")
-async def home():
-    return {"status": "✅ Bot is running"}
-
-@app.get("/search")
-async def search_endpoint(query: str):
-    results = await search_files(query)
-    return {"query": query, "results": results}
-
-# ========== STARTUP EVENT ==========
+# ===== APP STARTUP =====
 
 @app.on_event("startup")
-async def on_startup():
-    print("🔄 Starting bot...")
+async def startup():
     await tbot.start(bot_token=BOT_TOKEN)
     await setup_bot()
     print("✅ Bot started with FastAPI")
 
-# ========== MAIN ==========
+# ===== MAIN =====
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=PORT)
