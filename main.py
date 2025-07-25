@@ -1,70 +1,45 @@
-import os
-import asyncio
-from fastapi import FastAPI, Request
 from telethon import TelegramClient, events
-from telethon.tl.types import PeerChannel
-from telethon.errors import ChannelPrivateError, UsernameNotOccupiedError
+from fastapi import FastAPI
 import uvicorn
+import asyncio
+import os
 
-# Environment from Render (no dotenv)
-API_ID = int(os.getenv("API_ID"))
-API_HASH = os.getenv("API_HASH")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-PORT = int(os.getenv("PORT", 10000))
-SOURCE_CHANNEL = os.getenv("SOURCE_CHANNEL")  # public username or full ID
+from configs import Config
 
-tbot = TelegramClient("bot", API_ID, API_HASH)
+API_ID = Config.API_ID
+API_HASH = Config.API_HASH
+BOT_TOKEN = Config.BOT_TOKEN
+BOT_USERNAME = Config.BOT_USERNAME
+
+# Start Telethon bot
+bot = TelegramClient('bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+
+# FastAPI app
 app = FastAPI()
-channel_entity = None  # Global
 
-# ========== Search Logic ==========
-async def search_files(query):
-    global channel_entity
-
-    results = []
-    async for msg in tbot.iter_messages(channel_entity, search=query, limit=10):
-        if msg.text:
-            results.append({
-                "title": msg.text.split('\n')[0][:100],
-                "link": f"https://t.me/c/{str(channel_entity.channel_id)}/{msg.id}"
-            })
-
-    return results
-
-# ========== Telegram Bot ==========
-async def setup_bot():
-    @tbot.on(events.NewMessage(pattern="/start"))
-    async def start_handler(event):
-        await event.respond("✅ Bot is alive!")
-
-# ========== API Routes ==========
 @app.get("/")
-async def home():
-    return {"status": "✅ Bot is running"}
+async def root():
+    return {"status": "Bot is running", "website": Config.MOVIE_WEBSITE}
 
 @app.get("/search")
-async def search_endpoint(query: str):
-    results = await search_files(query)
-    return {"query": query, "results": results}
+async def search_movie(query: str):
+    return {"result": f"You searched for '{query}'. Implement search logic here."}
 
-# ========== Startup ==========
-@app.on_event("startup")
-async def on_startup():
-    global channel_entity
+@bot.on(events.NewMessage(pattern='/start'))
+async def start_handler(event):
+    await event.reply(Config.START_MSG)
 
-    print("🔄 Starting bot...")
-    await tbot.start(bot_token=BOT_TOKEN)
-    await setup_bot()
+# Combine both (FastAPI + Telethon)
+async def main():
+    print("Starting bot and API server...")
+    await bot.start()
+    await bot.run_until_disconnected()
 
-    try:
-        channel_entity = await tbot.get_entity(SOURCE_CHANNEL)
-        print(f"✅ Channel loaded: {SOURCE_CHANNEL}")
-    except (ChannelPrivateError, UsernameNotOccupiedError, ValueError) as e:
-        print(f"❌ Failed to load channel: {e}")
-        raise
+# Run FastAPI app in background and Telethon bot in main loop
+def start():
+    loop = asyncio.get_event_loop()
+    loop.create_task(main())
+    uvicorn.run(app, host="0.0.0.0", port=10000)
 
-    print("✅ Bot and FastAPI ready")
-
-# ========== Run ==========
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=PORT)
+    start()
