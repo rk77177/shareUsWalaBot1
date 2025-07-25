@@ -1,67 +1,70 @@
 import os
 import asyncio
-from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from telethon import TelegramClient, events
-from telethon.tl.types import Message
+from telethon.tl.types import PeerChannel
+from telethon.errors import ChannelPrivateError, UsernameNotOccupiedError
 import uvicorn
 
-# Load environment variables
-load_dotenv()
-
+# Environment from Render (no dotenv)
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 PORT = int(os.getenv("PORT", 10000))
-SOURCE_CHANNEL = int(os.getenv("SOURCE_CHANNEL"))
+SOURCE_CHANNEL = os.getenv("SOURCE_CHANNEL")  # public username or full ID
 
-# Initialize Telegram bot client
 tbot = TelegramClient("bot", API_ID, API_HASH)
-
-# FastAPI app
 app = FastAPI()
+channel_entity = None  # Global
 
-# ===== SEARCH FUNCTION =====
+# ========== Search Logic ==========
+async def search_files(query):
+    global channel_entity
 
-async def search_files(query: str):
     results = []
-    async for msg in tbot.iter_messages(SOURCE_CHANNEL, search=query, limit=20):
-        if msg.message:
-            # Parse message like: Movie Title (2022) 720p - https://link
-            parts = msg.message.split(" - ")
-            if len(parts) == 2:
-                title = parts[0].strip()
-                link = parts[1].strip()
-                results.append({"title": title, "link": link})
+    async for msg in tbot.iter_messages(channel_entity, search=query, limit=10):
+        if msg.text:
+            results.append({
+                "title": msg.text.split('\n')[0][:100],
+                "link": f"https://t.me/c/{str(channel_entity.channel_id)}/{msg.id}"
+            })
+
     return results
 
-# ===== FASTAPI ROUTES =====
-
-@app.get("/")
-async def root():
-    return {"status": "✅ Bot is running!"}
-
-@app.get("/search")
-async def search(query: str):
-    results = await search_files(query)
-    return {"query": query, "results": results}
-
-# ===== TELETHON BOT SETUP =====
-
+# ========== Telegram Bot ==========
 async def setup_bot():
     @tbot.on(events.NewMessage(pattern="/start"))
     async def start_handler(event):
         await event.respond("✅ Bot is alive!")
 
-# ===== APP STARTUP =====
+# ========== API Routes ==========
+@app.get("/")
+async def home():
+    return {"status": "✅ Bot is running"}
 
+@app.get("/search")
+async def search_endpoint(query: str):
+    results = await search_files(query)
+    return {"query": query, "results": results}
+
+# ========== Startup ==========
 @app.on_event("startup")
-async def startup():
+async def on_startup():
+    global channel_entity
+
+    print("🔄 Starting bot...")
     await tbot.start(bot_token=BOT_TOKEN)
     await setup_bot()
-    print("✅ Bot started with FastAPI")
 
-# ===== MAIN =====
+    try:
+        channel_entity = await tbot.get_entity(SOURCE_CHANNEL)
+        print(f"✅ Channel loaded: {SOURCE_CHANNEL}")
+    except (ChannelPrivateError, UsernameNotOccupiedError, ValueError) as e:
+        print(f"❌ Failed to load channel: {e}")
+        raise
 
+    print("✅ Bot and FastAPI ready")
+
+# ========== Run ==========
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=PORT)
