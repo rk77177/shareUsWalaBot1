@@ -13,6 +13,10 @@ from telethon import TelegramClient, events
 import urllib.parse
 from telethon.errors import UserNotParticipantError
 from telethon.tl.functions.channels import GetParticipantRequest
+import uvicorn
+from fastapi import FastAPI, Query
+from fastapi.responses import JSONResponse
+import nest_asyncio
 
 tbot = TelegramClient('mdisktelethonbot', Config.API_ID, Config.API_HASH).start(bot_token=Config.BOT_TOKEN)
 client = TelegramClient(StringSession( Config.USER_SESSION_STRING), Config.API_ID, Config.API_HASH)
@@ -228,15 +232,40 @@ print(f"""
     """)
 
 # User.start()
-with tbot, client:
-    tbot.run_until_disconnected()
-    client.run_until_disconnected()
+nest_asyncio.apply()
 
-# Loop Clients till Disconnects
-idle()
-# After Disconnects,
-# Stop Clients
-print()
-print("------------------------ Stopped Services ------------------------")
-Bot.stop()
-# User.stop()
+app = FastAPI()
+
+@app.get("/")
+def home():
+    return {"status": "Bot is running", "channel": f"@{Config.UPDATES_CHANNEL_USERNAME}"}
+
+@app.get("/search")
+async def search(query: str = Query(..., min_length=1)):
+    try:
+        results = []
+        async for msg in client.iter_messages(Config.CHANNEL_ID, search=query, limit=5):
+            if msg.text:
+                title_line = msg.text.split("\n", 1)[0]
+                rest = msg.text.split("\n", 1)[-1]
+                linkified = await link_to_hyperlink(msg.text)
+                results.append({
+                    "title": title_line.strip(),
+                    "body": rest.strip(),
+                    "formatted": linkified
+                })
+        if not results:
+            return JSONResponse({"message": "No results found."}, status_code=404)
+        return {"query": query, "results": results}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+async def main():
+    with tbot, client:
+        await asyncio.gather(
+            tbot.run_until_disconnected(),
+            client.run_until_disconnected()
+        )
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=10000)
