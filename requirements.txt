@@ -13,3 +13,4 @@ flask
 python-dotenv
 fastapi
 uvicorn
+nest_asyncio
